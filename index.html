@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PTO Tracker</title>
+<style>
+/* ── Config ── */
+/* Set your Apps Script URL below, then deploy to GitHub Pages */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+--bg: #ffffff;
+--bg2: #f7f7f5;
+--bg3: #f0efeb;
+--text: #1a1a18;
+--text2: #6b6b67;
+--text3: #a3a39e;
+--border: rgba(0,0,0,0.1);
+--border2: rgba(0,0,0,0.18);
+--radius: 10px;
+--radius-sm: 6px;
+--green-bg: #eaf3de; --green-text: #27500a; --green-border: #97c459;
+--amber-bg: #faeeda; --amber-text: #412402; --amber-border: #ef9f27;
+--red-bg: #fcebeb; --red-text: #791f1f; --red-border: #f09595;
+--blue-bg: #e6f1fb; --blue-text: #0c447c; --blue-border: #85b7eb;
+}
+@media (prefers-color-scheme: dark) {
+:root {
+--bg: #1c1c1a; --bg2: #252523; --bg3: #2e2e2b;
+--text: #f0efeb; --text2: #a3a39e; --text3: #6b6b67;
+--border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.18);
+--green-bg: #173404; --green-text: #c0dd97; --green-border: #3b6d11;
+--amber-bg: #412402; --amber-text: #fac775; --amber-border: #854f0b;
+--red-bg: #501313; --red-text: #f7c1c1; --red-border: #a32d2d;
+--blue-bg: #042c53; --blue-text: #b5d4f4; --blue-border: #185fa5;
+}
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; }
+.app { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+header { margin-bottom: 1.5rem; }
+header h1 { font-size: 22px; font-weight: 600; }
+header p { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+/* Tabs */
+.tabs { display: flex; gap: 2px; background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 4px; margin-bottom: 1.5rem; width: fit-content; }
+.tab { padding: 7px 16px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; background: none; color: var(--text2); border-radius: var(--radius-sm); transition: all .15s; }
+.tab.active { background: var(--bg); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.tab .badge { display: inline-block; background: #ef9f27; color: #412402; border-radius: 99px; padding: 0px 6px; font-size: 10px; margin-left: 5px; }
+
+/* Cards */
+.card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 12px; }
+.card-sm { padding: .875rem 1rem; }
+h2 { font-size: 15px; font-weight: 600; margin-bottom: 1rem; }
+h3 { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .04em; margin: 1.25rem 0 .75rem; }
+
+/* Metrics */
+.metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 1.5rem; }
+.metric { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+.metric-label { font-size: 11px; color: var(--text2); font-weight: 500; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+.metric-value { font-size: 28px; font-weight: 600; line-height: 1; }
+
+/* Form */
+label { font-size: 13px; color: var(--text2); display: block; margin-bottom: 4px; font-weight: 500; }
+input, select, textarea {
+width: 100%; padding: 8px 10px; font-size: 14px;
+border: 0.5px solid var(--border2); border-radius: var(--radius-sm);
+background: var(--bg); color: var(--text); margin-bottom: 14px;
+font-family: inherit; outline: none;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--text3); box-shadow: 0 0 0 3px rgba(0,0,0,.06); }
+textarea { height: 72px; resize: vertical; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.row > * { margin: 0; }
+.row input, .row select { margin-bottom: 0; }
+.form-group { margin-bottom: 14px; }
+
+/* Buttons */
+.btn { padding: 8px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; border: 0.5px solid var(--border2); background: none; color: var(--text); font-family: inherit; transition: all .15s; }
+.btn:hover { background: var(--bg2); }
+.btn-primary { background: var(--text); color: var(--bg); border-color: transparent; }
+.btn-primary:hover { opacity: .85; background: var(--text); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-approve { border-color: var(--green-border); color: var(--green-text); }
+.btn-approve:hover { background: var(--green-bg); }
+.btn-deny { border-color: var(--red-border); color: var(--red-text); }
+.btn-deny:hover { background: var(--red-bg); }
+.btn-ghost { border-color: transparent; color: var(--text3); }
+.btn-ghost:hover { color: var(--text); background: var(--bg2); }
+
+/* Badges */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 500; }
+.badge-ok { background: var(--green-bg); color: var(--green-text); }
+.badge-warn { background: var(--amber-bg); color: var(--amber-text); }
+.badge-deny { background: var(--red-bg); color: var(--red-text); }
+.badge-info { background: var(--blue-bg); color: var(--blue-text); }
+
+/* Approver tags */
+.ap-tag { display: inline-flex; align-items: center; gap: 5px; background: var(--bg2); border: 0.5px solid var(--border); border-radius: 99px; padding: 2px 9px; font-size: 12px; margin: 2px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dot-pending { background: #ef9f27; }
+.dot-approved { background: #639922; }
+.dot-denied { background: #e24b4a; }
+
+/* Table */
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th { text-align: left; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .04em; border-bottom: 0.5px solid var(--border); padding: 6px 10px; }
+.tbl td { padding: 11px 10px; border-bottom: 0.5px solid var(--border); vertical-align: middle; }
+.tbl tr:last-child td { border-bottom: none; }
+
+/* Request card (approvals view) */
+.req-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 10px; }
+.req-card-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.req-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 0.5px solid var(--border); }
+
+/* Approver builder */
+.ap-builder { margin-bottom: 14px; }
+.ap-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.ap-row input { margin: 0; flex: 1; }
+.ap-row select { margin: 0; width: 120px; }
+
+/* Alerts */
+.alert { padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 14px; border: 0.5px solid; }
+.alert-ok { background: var(--green-bg); color: var(--green-text); border-color: var(--green-border); }
+.alert-err { background: var(--red-bg); color: var(--red-text); border-color: var(--red-border); }
+.alert-info { background: var(--blue-bg); color: var(--blue-text); border-color: var(--blue-border); }
+
+/* Misc */
+.empty { text-align: center; padding: 2.5rem; color: var(--text3); font-size: 14px; }
+.subtext { font-size: 12px; color: var(--text3); margin-top: -10px; margin-bottom: 14px; }
+.loading { display: flex; align-items: center; gap: 8px; color: var(--text2); font-size: 13px; padding: 1rem 0; }
+.spin { width: 16px; height: 16px; border: 2px solid var(--border2); border-top-color: var(--text2); border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+@media (max-width: 640px) { .metrics { grid-template-columns: 1fr 1fr; } .two-col { grid-template-columns: 1fr; } .row { grid-template-columns: 1fr; } }
+
+/* Config banner */
+.config-banner { background: var(--amber-bg); border: 0.5px solid var(--amber-border); color: var(--amber-text); border-radius: var(--radius); padding: .875rem 1rem; margin-bottom: 1.5rem; font-size: 13px; display: none; }
+.config-banner strong { font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+<h1>PTO Tracker</h1>
+<p>Multi-approver time off management</p>
+</header>
+
+<div class="config-banner" id="config-banner">
+<strong>Setup required:</strong> Open <code>index.html</code>, find <code>SCRIPT_URL</code> at the top of the &lt;script&gt; tag, and replace it with your Google Apps Script Web App URL.
+</div>
+
+<div class="tabs">
+<button class="tab active" data-tab="dashboard" onclick="switchTab(this)">Dashboard</button>
+<button class="tab" data-tab="request" onclick="switchTab(this)">Request PTO</button>
+<button class="tab" data-tab="approvals" onclick="switchTab(this)">Approvals <span class="badge" id="pending-badge" style="display:none">0</span></button>
+<button class="tab" data-tab="setup" onclick="switchTab(this)">Team Setup</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="tab-dashboard">
+<div class="metrics">
+<div class="metric"><div class="metric-label">Total</div><div class="metric-value" id="m-total">—</div></div>
+<div class="metric"><div class="metric-label">Pending</div><div class="metric-value" id="m-pending">—</div></div>
+<div class="metric"><div class="metric-label">Approved</div><div class="metric-value" id="m-approved">—</div></div>
+<div class="metric"><div class="metric-label">Denied</div><div class="metric-value" id="m-denied">—</div></div>
+</div>
+<div class="card" style="padding:0; overflow:hidden;">
+<div id="dashboard-body"></div>
+</div>
+</div>
+
+<!-- REQUEST PTO -->
+<div id="tab-request" style="display:none">
+<div class="card" style="max-width:540px;">
+<h2>Submit a PTO request</h2>
+<div id="req-alert" style="display:none" class="alert"></div>
+<label>Your name</label>
+<select id="req-emp">
+<option value="">Select employee...</option>
+</select>
+<div class="row form-group">
+<div><label>Start date</label><input type="date" id="req-start"></div>
+<div><label>End date</label><input type="date" id="req-end"></div>
+</div>
+<label>Leave type</label>
+<select id="req-type">
+<option>Vacation</option>
+<option>Sick leave</option>
+<option>Personal day</option>
+<option>Bereavement</option>
+<option>Other</option>
+</select>
+<label>Notes (optional)</label>
+<textarea id="req-notes" placeholder="Any context for your approvers..."></textarea>
+<div id="req-approver-preview" style="display:none; margin-bottom:14px;">
+<div style="font-size:12px; color:var(--text2); margin-bottom:6px; font-weight:500;">Approvers for this request:</div>
+<div id="req-approver-tags"></div>
+<div id="req-logic-label" style="font-size:12px; color:var(--text3); margin-top:6px;"></div>
+</div>
+<button class="btn btn-primary" onclick="submitRequest()">Submit request</button>
+</div>
+</div>
+
+<!-- APPROVALS -->
+<div id="tab-approvals" style="display:none">
+<div class="card card-sm" style="max-width:360px; margin-bottom:1.5rem;">
+<label>Acting as approver</label>
+<select id="approver-filter" onchange="renderApprovals()" style="margin-bottom:0">
+<option value="">All approvers</option>
+</select>
+</div>
+<h3>Awaiting action</h3>
+<div id="ap-pending"></div>
+<h3>Resolved</h3>
+<div id="ap-resolved"></div>
+</div>
+
+<!-- SETUP -->
+<div id="tab-setup" style="display:none">
+<div class="two-col">
+<div>
+<div class="card">
+<h2>Add employee</h2>
+<div id="setup-alert" style="display:none" class="alert"></div>
+<label>Full name</label>
+<input type="text" id="s-name" placeholder="Jane Smith">
+<label>Email</label>
+<input type="email" id="s-email" placeholder="jane@company.com">
+<label>Teams / departments</label>
+<input type="text" id="s-teams" placeholder="Engineering, Product">
+<div class="subtext">Comma-separated</div>
+<label>Approval logic</label>
+<select id="s-logic">
+<option value="all">All must approve (AND)</option>
+<option value="any">Anyone can approve (OR)</option>
+<option value="sequential">Sequential — approve in order</option>
+</select>
+<label>Required approvers</label>
+<div class="ap-builder" id="ap-builder">
+<div class="ap-row">
+<input type="text" placeholder="Name" class="ap-name">
+<input type="email" placeholder="Email" class="ap-email">
+<button class="btn btn-ghost btn-sm" onclick="removeApRow(this)">✕</button>
+</div>
+</div>
+<button class="btn btn-sm" onclick="addApRow()" style="margin-bottom:14px;">+ Add approver</button><br>
+<button class="btn btn-primary" onclick="addEmployee()">Add employee</button>
+</div>
+</div>
+<div>
+<div class="card" style="padding:0; overflow:hidden;">
+<div style="padding:1.25rem 1.25rem .5rem;"><h2 style="margin:0">Employees</h2></div>
+<div id="emp-list"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+// ── CONFIG — replace with your deployed Apps Script URL ──────
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwM1UuNhPDdb3_N9t1ZArmrEh8lAJVRMJUgrv8LUcEHmTN37-jzh9VkMbwM_2H-AeqIvg/exec';
+// ────────────────────────────────────────────────────────────
+
+let employees = [];
+let requests = [];
+
+// ── API ───────────────────────────────────────────────────────
+async function api(action, body = {}) {
+const url = `${SCRIPT_URL}?action=${action}`;
+try {
+const res = await fetch(url, {
+method: 'POST',
+body: JSON.stringify({ action, ...body }),
+});
+return await res.json();
+} catch (e) {
+return { error: e.message };
+}
+}
+
+// ── Init ──────────────────────────────────────────────────────
+async function init() {
+if (SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL_HERE') {
+document.getElementById('config-banner').style.display = 'block';
+setMetrics(0,0,0,0);
+document.getElementById('dashboard-body').innerHTML = '<div class="empty">Configure your Apps Script URL to get started.</div>';
+return;
+}
+await Promise.all([loadEmployees(), loadRequests()]);
+renderAll();
+}
+
+async function loadEmployees() {
+const r = await api('getEmployees');
+employees = r.employees || [];
+}
+
+async function loadRequests() {
+const r = await api('getRequests');
+requests = r.requests || [];
+}
+
+// ── Tabs ──────────────────────────────────────────────────────
+function switchTab(btn) {
+document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display = 'none');
+btn.classList.add('active');
+document.getElementById('tab-' + btn.dataset.tab).style.display = 'block';
+renderAll();
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function days(s, e) {
+return Math.round((new Date(e) - new Date(s)) / 86400000) + 1;
+}
+
+function overallStatus(req) {
+const emp = employees.find(e => e.ID === req.EmployeeID);
+const logic = emp ? (emp.ApprovalLogic || 'all') : 'all';
+const aps = req.approvals || [];
+if (!aps.length) return 'approved';
+if (aps.some(a => a.Status === 'denied')) return 'denied';
+if (logic === 'any' && aps.some(a => a.Status === 'approved')) return 'approved';
+if ((logic === 'all' || logic === 'sequential') && aps.every(a => a.Status === 'approved')) return 'approved';
+return 'pending';
+}
+
+function statusBadge(s) {
+if (s === 'approved') return '<span class="badge badge-ok">Approved</span>';
+if (s === 'denied') return '<span class="badge badge-deny">Denied</span>';
+return '<span class="badge badge-warn">Pending</span>';
+}
+
+function approverTags(req) {
+return (req.approvals || []).map(a => {
+const cls = a.Status === 'approved' ? 'dot-approved' : a.Status === 'denied' ? 'dot-denied' : 'dot-pending';
+return `<span class="ap-tag"><span class="dot ${cls}"></span>${a.ApproverName}</span>`;
+}).join('');
+}
+
+function setMetrics(total, pending, approved, denied) {
+document.getElementById('m-total').textContent = total;
+document.getElementById('m-pending').textContent = pending;
+document.getElementById('m-approved').textContent = approved;
+document.getElementById('m-denied').textContent = denied;
+}
+
+function showAlert(id, msg, type) {
+const el = document.getElementById(id);
+el.textContent = msg;
+el.className = `alert alert-${type}`;
+el.style.display = 'block';
+setTimeout(() => el.style.display = 'none', 5000);
+}
+
+// ── Render all ────────────────────────────────────────────────
+function renderAll() {
+renderDashboard();
+renderRequestForm();
+renderApprovals();
+renderEmployeeList();
+updatePendingBadge();
+}
+
+// ── Dashboard ─────────────────────────────────────────────────
+function renderDashboard() {
+const total = requests.length;
+const pending = requests.filter(r => overallStatus(r) === 'pending').length;
+const approved = requests.filter(r => overallStatus(r) === 'approved').length;
+const denied = requests.filter(r => overallStatus(r) === 'denied').length;
+setMetrics(total, pending, approved, denied);
+
+const el = document.getElementById('dashboard-body');
+if (!total) { el.innerHTML = '<div class="empty">No PTO requests yet</div>'; return; }
+
+el.innerHTML = `<table class="tbl">
+<thead><tr><th>Employee</th><th>Dates</th><th>Type</th><th>Days</th><th>Approvers</th><th>Status</th></tr></thead>
+<tbody>
+${[...requests].reverse().map(r => `<tr>
+<td><strong style="font-weight:500">${r.EmployeeName}</strong><br><span style="font-size:11px;color:var(--text3)">${r.EmployeeEmail}</span></td>
+<td>${r.StartDate}<br><span style="font-size:11px;color:var(--text3)">→ ${r.EndDate}</span></td>
+<td>${r.Type}</td>
+<td>${days(r.StartDate, r.EndDate)}</td>
+<td>${approverTags(r) || '<span style="color:var(--text3);font-size:12px">none</span>'}</td>
+<td>${statusBadge(overallStatus(r))}</td>
+</tr>`).join('')}
+</tbody>
+</table>`;
+}
+
+// ── Request form ──────────────────────────────────────────────
+function renderRequestForm() {
+const sel = document.getElementById('req-emp');
+const cur = sel.value;
+sel.innerHTML = '<option value="">Select employee...</option>' +
+employees.map(e => `<option value="${e.ID}">${e.Name}</option>`).join('');
+if (cur) sel.value = cur;
+
+sel.onchange = () => {
+const emp = employees.find(e => e.ID === sel.value);
+const preview = document.getElementById('req-approver-preview');
+const tags = document.getElementById('req-approver-tags');
+const logicLabel = document.getElementById('req-logic-label');
+if (emp) {
+const aps = JSON.parse(emp.Approvers || '[]');
+const logic = emp.ApprovalLogic || 'all';
+if (aps.length) {
+tags.innerHTML = aps.map(a => `<span class="ap-tag">${a.name}</span>`).join('');
+const logicText = { all: 'All approvers must approve', any: 'Any one approver can approve', sequential: 'Approvers will be asked in order' };
+logicLabel.textContent = logicText[logic] || '';
+preview.style.display = 'block';
+} else {
+preview.style.display = 'none';
+}
+} else {
+preview.style.display = 'none';
+}
+};
+}
+
+// ── Approvals ─────────────────────────────────────────────────
+function renderApprovals() {
+const allApprovers = [...new Set(employees.flatMap(e => JSON.parse(e.Approvers || '[]').map(a => a.name)))];
+const sel = document.getElementById('approver-filter');
+const cur = sel.value;
+sel.innerHTML = '<option value="">All approvers</option>' +
+allApprovers.map(a => `<option value="${a}">${a}</option>`).join('');
+if (cur) sel.value = cur;
+
+const filter = sel.value;
+const pending = [];
+const resolved = [];
+
+requests.forEach(r => {
+const status = overallStatus(r);
+const myPendingAps = (r.approvals || []).filter(a =>
+(!filter || a.ApproverName === filter) && a.Status === 'pending'
+);
+if (myPendingAps.length && status === 'pending') {
+pending.push({ req: r, myAps: myPendingAps });
+} else if (!filter || (r.approvals||[]).some(a => a.ApproverName === filter)) {
+if (status !== 'pending') resolved.push({ req: r, myAps: [] });
+}
+});
+
+const renderReqCard = ({ req, myAps }) => {
+const status = overallStatus(req);
+const d = days(req.StartDate, req.EndDate);
+const actions = myAps.map(a => `
+<button class="btn btn-sm btn-approve" onclick="doApprove('${req.ID}','${a.ApproverEmail}')">Approve as ${a.ApproverName}</button>
+<button class="btn btn-sm btn-deny" onclick="doDeny('${req.ID}','${a.ApproverEmail}')">Deny as ${a.ApproverName}</button>
+`).join('');
+return `<div class="req-card">
+<div class="req-card-head">
+<div>
+<strong style="font-size:14px;font-weight:500">${req.EmployeeName}</strong> &mdash; <span style="color:var(--text2)">${req.Type}</span><br>
+<span style="font-size:12px;color:var(--text2)">${req.StartDate} → ${req.EndDate} &middot; ${d} day${d>1?'s':''}</span>
+</div>
+${statusBadge(status)}
+</div>
+${req.Notes ? `<div style="font-size:13px;color:var(--text2);margin-bottom:8px">${req.Notes}</div>` : ''}
+<div>${approverTags(req)}</div>
+${actions ? `<div class="req-actions">${actions}</div>` : ''}
+</div>`;
+};
+
+document.getElementById('ap-pending').innerHTML = pending.length ? pending.map(renderReqCard).join('') : '<div class="empty">No pending approvals</div>';
+document.getElementById('ap-resolved').innerHTML = resolved.length ? resolved.map(renderReqCard).join('') : '<div class="empty">None yet</div>';
+}
+
+function updatePendingBadge() {
+const n = requests.filter(r => overallStatus(r) === 'pending').length;
+const badge = document.getElementById('pending-badge');
+badge.textContent = n;
+badge.style.display = n ? 'inline' : 'none';
+}
+
+// ── Employee setup ────────────────────────────────────────────
+function addApRow() {
+const row = document.createElement('div');
+row.className = 'ap-row';
+row.innerHTML = `<input type="text" placeholder="Name" class="ap-name"><input type="email" placeholder="Email" class="ap-email"><button class="btn btn-ghost btn-sm" onclick="removeApRow(this)">✕</button>`;
+document.getElementById('ap-builder').appendChild(row);
+}
+function removeApRow(btn) {
+const rows = document.querySelectorAll('.ap-row');
+if (rows.length > 1) btn.closest('.ap-row').remove();
+}
+
+async function addEmployee() {
+const name = document.getElementById('s-name').value.trim();
+const email = document.getElementById('s-email').value.trim();
+const teams = document.getElementById('s-teams').value.trim();
+const logic = document.getElementById('s-logic').value;
+if (!name || !email) { showAlert('setup-alert', 'Name and email are required.', 'err'); return; }
+
+const approvers = [...document.querySelectorAll('.ap-row')].map(row => ({
+name: row.querySelector('.ap-name').value.trim(),
+email: row.querySelector('.ap-email').value.trim(),
+})).filter(a => a.name && a.email);
+
+showAlert('setup-alert', 'Saving...', 'info');
+const r = await api('addEmployee', { name, email, teams, approvers, approvalLogic: logic });
+if (r.error) { showAlert('setup-alert', r.error, 'err'); return; }
+
+showAlert('setup-alert', `${name} added successfully.`, 'ok');
+document.getElementById('s-name').value = '';
+document.getElementById('s-email').value = '';
+document.getElementById('s-teams').value = '';
+document.querySelectorAll('.ap-name, .ap-email').forEach(i => i.value = '');
+await loadEmployees();
+renderAll();
+}
+
+function renderEmployeeList() {
+const el = document.getElementById('emp-list');
+if (!employees.length) { el.innerHTML = '<div class="empty">No employees yet</div>'; return; }
+el.innerHTML = employees.map(e => {
+const aps = JSON.parse(e.Approvers || '[]');
+return `<div style="padding:10px 1.25rem;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start">
+<div>
+<div style="font-weight:500;font-size:14px">${e.Name}</div>
+${e.Teams ? `<div style="font-size:12px;color:var(--text2)">${e.Teams}</div>` : ''}
+<div style="margin-top:4px">${aps.map(a=>`<span class="ap-tag">${a.name}</span>`).join('') || '<span style="font-size:12px;color:var(--text3)">No approvers</span>'}</div>
+</div>
+<button class="btn btn-ghost btn-sm" onclick="removeEmp('${e.ID}')">Remove</button>
+</div>`;
+}).join('');
+}
+
+async function removeEmp(id) {
+if (!confirm('Remove this employee?')) return;
+await api('removeEmployee', { id });
+await loadEmployees();
+renderAll();
+}
+
+// ── Approval actions ──────────────────────────────────────────
+async function doApprove(requestId, approverEmail) {
+const r = await api('approveRequest', { requestId, approverEmail });
+if (r.error) { alert('Error: ' + r.error); return; }
+await loadRequests();
+renderAll();
+}
+
+async function doDeny(requestId, approverEmail) {
+if (!confirm('Deny this request?')) return;
+const r = await api('denyRequest', { requestId, approverEmail });
+if (r.error) { alert('Error: ' + r.error); return; }
+await loadRequests();
+renderAll();
+}
+
+// ── Submit request ────────────────────────────────────────────
+async function submitRequest() {
+const empId = document.getElementById('req-emp').value;
+const start = document.getElementById('req-start').value;
+const end = document.getElementById('req-end').value;
+const type = document.getElementById('req-type').value;
+const notes = document.getElementById('req-notes').value.trim();
+
+if (!empId || !start || !end) { showAlert('req-alert', 'Please fill in all required fields.', 'err'); return; }
+if (end < start) { showAlert('req-alert', 'End date must be after start date.', 'err'); return; }
+
+showAlert('req-alert', 'Submitting...', 'info');
+const r = await api('submitRequest', { employeeId: empId, start, end, type, notes });
+if (r.error) { showAlert('req-alert', r.error, 'err'); return; }
+
+showAlert('req-alert', 'Request submitted! Approvers have been notified by email.', 'ok');
+document.getElementById('req-emp').value = '';
+document.getElementById('req-start').value = '';
+document.getElementById('req-end').value = '';
+document.getElementById('req-notes').value = '';
+document.getElementById('req-approver-preview').style.display = 'none';
+await loadRequests();
+renderAll();
+}
+
+init();
+</script>
+</body>
+</html>
